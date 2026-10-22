@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BahirPashtoUpload Sign-in</title><link rel="stylesheet" href="style.css"></head><body>
+<nav><a href="index.html">Home</a><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Use</a></nav>
+<h1>TikTok sign-in</h1>
+<p id="msg">Finishing sign-in…</p>
+<p class="muted">This page only passes TikTok's one-time sign-in code to the BahirPashtoUpload tool running on the owner's own computer. It stores nothing.</p>
+<script>
+// Hand the one-time code to the local uploader (upload_tiktok.py --auth listens on 127.0.0.1:8765).
+var q = window.location.search;
+var p = new URLSearchParams(q);
+var msg = document.getElementById('msg');
+if (p.get('error')) {
+  msg.textContent = 'TikTok sign-in was not completed: ' + p.get('error') + ' ' + (p.get('error_description') || '');
+} else if (p.get('code')) {
+  msg.textContent = 'Signed in. Returning to BahirPashtoUpload on this computer…';
+  window.location.replace('http://127.0.0.1:8765/callback' + q);
+} else {
+  msg.textContent = 'No sign-in code found. Start the sign-in again from BahirPashtoUpload.';
+}
+</script>
+</body></html>
