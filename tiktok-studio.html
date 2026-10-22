@@ -1,0 +1,197 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BahirPashtoUpload Studio</title><link rel="stylesheet" href="style.css">
+<style>
+.card{border:1px solid var(--rule);border-radius:10px;padding:16px;margin:16px 0}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--rule)}
+button{font:inherit;padding:8px 16px;border-radius:8px;border:1px solid var(--rule);background:var(--bg);color:var(--fg);cursor:pointer}
+button.primary{background:#fe2c55;border-color:#fe2c55;color:#fff;font-weight:600}
+button:disabled{opacity:.45;cursor:not-allowed}
+select,textarea{font:inherit;width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid var(--rule);background:var(--bg);color:var(--fg)}
+textarea{min-height:90px}
+label.opt{display:inline-flex;align-items:center;gap:6px;margin-right:18px}
+label.opt.off{opacity:.45}
+video{width:200px;max-height:356px;border-radius:8px;background:#000}
+.note{font-size:14px;color:var(--muted)}
+.warn{color:#d1242f;font-size:14px}
+.ok{color:#1a7f37}
+.hidden{display:none}
+h3{font-size:16px;margin:16px 0 6px}
+</style></head><body>
+<nav><a href="index.html">Home</a><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Use</a></nav>
+<h1>BahirPashtoUpload Studio</h1>
+<p class="muted">Post videos you made to your TikTok account. Your TikTok keys and sign-in stay on your own computer.</p>
+
+<div id="offline" class="card hidden"><strong>The BahirPashtoUpload helper isn't running on this computer.</strong>
+<p class="note">Start it with <code>.venv/bin/python tiktok_studio.py</code> in the shorts-maker folder, then reload this page. If the browser asks to allow access to devices on your local network, choose Allow.</p></div>
+
+<div id="signedOut" class="card hidden">
+<p>Sign in with the TikTok account you want to post to.</p>
+<button class="primary" id="loginBtn">Continue with TikTok</button></div>
+
+<div id="studio" class="hidden">
+<div class="card row">
+<img id="avatar" class="avatar" alt="">
+<div style="flex:1"><div><strong id="nickname"></strong> <span class="muted" id="username"></span></div>
+<div class="note">Posting to this TikTok account · <span id="displayName"></span></div></div>
+<button id="logoutBtn">Sign out</button></div>
+<p id="cantPost" class="warn hidden"></p>
+
+<div class="card">
+<h3>1. Video</h3>
+<select id="videoSel"></select>
+<div class="row" style="margin-top:12px;align-items:flex-start">
+<video id="preview" controls playsinline></video>
+<div class="note" id="videoInfo"></div></div>
+
+<h3>2. Caption</h3>
+<textarea id="caption" maxlength="2200"></textarea>
+<div class="note"><span id="capCount">0</span> / 2200</div>
+
+<h3>3. Who can view this video</h3>
+<select id="privacy"><option value="" selected disabled>Select who can view</option></select>
+<p id="brandedPrivateNote" class="note hidden">Branded content visibility cannot be set to private.</p>
+
+<h3>4. Allow users to</h3>
+<label class="opt" id="lblComment"><input type="checkbox" id="allowComment"> Comment</label>
+<label class="opt" id="lblDuet"><input type="checkbox" id="allowDuet"> Duet</label>
+<label class="opt" id="lblStitch"><input type="checkbox" id="allowStitch"> Stitch</label>
+
+<h3>5. Disclose video content</h3>
+<label class="opt"><input type="checkbox" id="disclose"> This video promotes a brand, product or service</label>
+<div id="discloseBox" class="hidden" style="margin-top:8px">
+<p class="note">Turn on to disclose that this video promotes goods or services in exchange for something of value. Your video could promote yourself, a third party, or both.</p>
+<label class="opt"><input type="checkbox" id="yourBrand"> Your brand<span class="note">&nbsp;– you are promoting yourself or your own business</span></label><br>
+<label class="opt"><input type="checkbox" id="brandedContent"> Branded content<span class="note">&nbsp;– you are promoting another brand or a third party</span></label>
+<p id="discloseLabel" class="note"></p>
+<p id="discloseNeed" class="warn">You need to indicate if your content promotes yourself, a third party, or both.</p></div>
+
+<h3>6. AI-generated content</h3>
+<label class="opt"><input type="checkbox" id="aigc"> Label this video as AI-generated</label>
+
+<p id="consent" class="note" style="margin-top:20px"></p>
+<label class="opt"><input type="checkbox" id="agree"> I agree</label>
+<div class="row" style="margin-top:12px"><button class="primary" id="postBtn" disabled>Post to TikTok</button>
+<span id="postMsg" class="note"></span></div>
+</div></div>
+
+<script>
+var HELPER = 'http://127.0.0.1:8765';
+var PRIVACY_LABELS = {PUBLIC_TO_EVERYONE: 'Everyone', MUTUAL_FOLLOW_FRIENDS: 'Friends (followers you follow back)',
+  FOLLOWER_OF_CREATOR: 'Followers', SELF_ONLY: 'Only me'};
+var MUSIC = '<a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank">Music Usage Confirmation</a>';
+var BC = '<a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank">Branded Content Policy</a>';
+var creator = null, vids = [];
+function $(id) { return document.getElementById(id); }
+function show(id, on) { $(id).classList.toggle('hidden', !on); }
+
+function api(path, body) {
+  var opts = body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {};
+  return fetch(HELPER + path, opts).then(function (r) {
+    return r.json().then(function (j) { j._status = r.status; return j; });
+  });
+}
+
+function start() {
+  api('/api/ping').then(function (p) {
+    if (!p.signed_in) { show('signedOut', true); return; }
+    return api('/api/me').then(function (me) {
+      if (me.error) { show('signedOut', true); return; }
+      creator = me.creator;
+      $('avatar').src = creator.creator_avatar_url;
+      $('nickname').textContent = creator.creator_nickname;
+      $('username').textContent = '@' + creator.creator_username;
+      $('displayName').textContent = 'signed in as ' + me.user.display_name;
+      creator.privacy_level_options.forEach(function (o) {
+        var opt = document.createElement('option');
+        opt.value = o; opt.textContent = PRIVACY_LABELS[o] || o;
+        $('privacy').appendChild(opt);
+      });
+      [['comment_disabled', 'allowComment', 'lblComment'], ['duet_disabled', 'allowDuet', 'lblDuet'],
+       ['stitch_disabled', 'allowStitch', 'lblStitch']].forEach(function (x) {
+        if (creator[x[0]]) { $(x[1]).disabled = true; $(x[2]).classList.add('off'); }
+      });
+      show('studio', true);
+      return api('/api/videos').then(function (v) {
+        vids = v.videos;
+        vids.forEach(function (x, i) {
+          var opt = document.createElement('option');
+          opt.value = i; opt.textContent = x.title;
+          $('videoSel').appendChild(opt);
+        });
+        pickVideo();
+      });
+    });
+  }).catch(function () { show('offline', true); });
+}
+
+function pickVideo() {
+  var v = vids[$('videoSel').value];
+  if (!v) return;
+  $('preview').src = HELPER + '/video/' + encodeURIComponent(v.slug);
+  $('caption').value = v.caption;
+  $('capCount').textContent = v.caption.length;
+  var info = v.duration + ' s · ' + v.size_mb + ' MB';
+  var max = creator.max_video_post_duration_sec;
+  if (max && v.duration > max) info += '<br><span class="warn">Longer than the ' + max + ' s this account can post.</span>';
+  $('videoInfo').innerHTML = info;
+  update();
+}
+
+function update() {
+  var v = vids[$('videoSel').value];
+  var disclose = $('disclose').checked, yours = $('yourBrand').checked, branded = $('brandedContent').checked;
+  show('discloseBox', disclose);
+  show('discloseNeed', disclose && !yours && !branded);
+  $('discloseLabel').textContent = !disclose ? '' : branded ? "Your video will be labeled as 'Paid partnership'."
+    : yours ? "Your video will be labeled as 'Promotional content'." : '';
+  var selfOnly = $('privacy').querySelector('option[value="SELF_ONLY"]');
+  if (selfOnly) selfOnly.disabled = disclose && branded;
+  show('brandedPrivateNote', disclose && branded);
+  if (disclose && branded && $('privacy').value === 'SELF_ONLY') $('privacy').value = '';
+  $('consent').innerHTML = 'By posting, you agree to TikTok\'s ' + (disclose && branded ? BC + ' and ' : '') + MUSIC + '.';
+  var tooLong = v && creator.max_video_post_duration_sec && v.duration > creator.max_video_post_duration_sec;
+  $('postBtn').disabled = !v || tooLong || !$('privacy').value || !$('agree').checked ||
+    (disclose && !yours && !branded);
+}
+
+function post() {
+  var v = vids[$('videoSel').value];
+  $('postBtn').disabled = true;
+  $('postMsg').textContent = 'Uploading to TikTok...';
+  api('/api/post', {
+    slug: v.slug, title: $('caption').value, privacy_level: $('privacy').value,
+    allow_comment: $('allowComment').checked, allow_duet: $('allowDuet').checked, allow_stitch: $('allowStitch').checked,
+    brand_organic: $('disclose').checked && $('yourBrand').checked,
+    brand_content: $('disclose').checked && $('brandedContent').checked,
+    is_aigc: $('aigc').checked, consent: $('agree').checked
+  }).then(function (r) {
+    if (r.error) { $('postMsg').innerHTML = '<span class="warn">' + (r.message || r.error) + '</span>'; update(); return; }
+    poll(r.publish_id);
+  });
+}
+
+function poll(id) {
+  api('/api/status?publish_id=' + encodeURIComponent(id)).then(function (s) {
+    if (s.status === 'PUBLISH_COMPLETE') {
+      $('postMsg').innerHTML = '<span class="ok">Posted to @' + creator.creator_username +
+        '. It may take a few minutes to appear on your profile.</span>';
+      return;
+    }
+    if (s.status === 'FAILED' || s.error) {
+      $('postMsg').innerHTML = '<span class="warn">TikTok could not post it: ' + (s.fail_reason || s.message || s.error) + '</span>';
+      update(); return;
+    }
+    $('postMsg').textContent = 'TikTok is processing your video...';
+    setTimeout(function () { poll(id); }, 4000);
+  });
+}
+
+$('loginBtn').onclick = function () { api('/api/login').then(function (r) { window.location = r.url; }); };
+$('logoutBtn').onclick = function () { api('/api/logout', {}).then(function () { location.href = 'tiktok-studio.html'; }); };
+$('videoSel').onchange = pickVideo;
+$('caption').oninput = function () { $('capCount').textContent = $('caption').value.length; };
+['privacy', 'disclose', 'yourBrand', 'brandedContent', 'agree'].forEach(function (id) { $(id).onchange = update; });
+$('postBtn').onclick = post;
+start();
+</script>
+</body></html>
