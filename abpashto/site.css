@@ -1,0 +1,32 @@
+:root{--bg:#f6f8fb;--card:#fff;--fg:#14213d;--muted:#5b6475;--brand:#0b3a6f;--accent:#1a8fe3;--sun:#f5a524;--rule:#dfe5ee}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1420;--card:#152031;--fg:#e8eef7;--muted:#9aa7bb;--brand:#7fb6ff;--accent:#4aa8ff;--rule:#26354d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+a{color:var(--accent)}
+.wrap{max-width:960px;margin:0 auto;padding:0 16px}
+header{background:var(--card);border-bottom:1px solid var(--rule)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:12px;padding-bottom:12px}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--fg);font-weight:700;font-size:20px}
+.brand img{width:44px;height:44px;border-radius:10px;background:#fff}
+nav a{margin-left:18px;text-decoration:none;color:var(--muted);font-weight:500}
+nav a:hover,nav a.on{color:var(--fg)}
+.hero{padding:56px 0 40px}
+.hero h1{font-size:40px;line-height:1.15;margin:0 0 12px}
+.hero p{font-size:19px;color:var(--muted);max-width:640px;margin:0 0 24px}
+.ps{font-size:22px;direction:rtl;unicode-bidi:isolate;color:var(--brand);font-weight:600}
+.btn{display:inline-block;padding:11px 20px;border-radius:999px;background:var(--brand);color:#fff;text-decoration:none;font-weight:600;margin:0 10px 10px 0}
+.btn.alt{background:transparent;color:var(--brand);border:2px solid var(--brand)}
+section{padding:28px 0}
+h2{font-size:26px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:20px}
+.card h3{margin:0 0 6px;font-size:18px}
+.card p{margin:0;color:var(--muted)}
+.tag{display:inline-block;font-size:13px;font-weight:600;color:var(--brand);background:rgba(26,143,227,.12);border-radius:999px;padding:2px 10px;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:14px;overflow:hidden}
+td,th{text-align:left;padding:12px 14px;border-bottom:1px solid var(--rule)}
+th{font-size:14px;color:var(--muted)}
+ol li,ul li{margin-bottom:6px}
+footer{border-top:1px solid var(--rule);margin-top:40px;padding:24px 0;color:var(--muted);font-size:14px}
+footer a{margin-right:16px}
+@media (max-width:600px){.hero h1{font-size:30px}nav a{margin:0 14px 0 0}}
